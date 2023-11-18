@@ -1,6 +1,11 @@
 #include "Windows.h"
 #include "dwmapi.h"
 #include "d3d11.h"
+#include "string"
+#include "iomanip"
+#include <iostream>
+#include <fstream>
+#include "algorithm"
 
 #include "ImGui/imgui.h"
 #include "ImGui/imgui_impl_dx11.h"
@@ -129,15 +134,48 @@ INT APIENTRY WinMain(HINSTANCE Instance, HINSTANCE, PSTR, INT ShowCMD)
     ImGui_ImplWin32_Init(Window);
     ImGui_ImplDX11_Init(Device, DeviceContext);
 
+    ImGuiStyle& style = ImGui::GetStyle();
+
+    style.WindowRounding = 0.0f;
+    style.Colors[ImGuiCol_TitleBg] = ImVec4(0.1f, 0.1f, 0.1f, 1.0f);
+    style.Colors[ImGuiCol_TitleBgActive] = ImVec4(0.15f, 0.15f, 0.15f, 1.0f);
+    style.Colors[ImGuiCol_Text] = ImVec4(0.8f, 0.8f, 0.8f, 1.0f);
+    style.Colors[ImGuiCol_WindowBg] = ImVec4(0.05f, 0.05f, 0.05f, 0.7f);
+
+    style.Colors[ImGuiCol_Button] = ImVec4(0.02f, 0.02f, 0.02f, 0.7f);
+    style.Colors[ImGuiCol_ButtonHovered] = ImVec4(0.6f, 0.6f, 0.6f, 0.7f);
+    style.Colors[ImGuiCol_ButtonActive] = ImVec4(0.12f, 0.12f, 0.12f, 0.7f);
+
+    style.Colors[ImGuiCol_CheckMark] = ImVec4(0.7f, 0.7f, 0.7f, 0.7f);
+    style.Colors[ImGuiCol_FrameBg] = ImVec4(0.01f, 0.01f, 0.01f, 0.7f);
+    style.Colors[ImGuiCol_FrameBgHovered] = ImVec4(0.6f, 0.6f, 0.6f, 0.7f);
+    style.Colors[ImGuiCol_FrameBgActive] = ImVec4(0.12f, 0.12f, 0.12f, 0.7f);
+
+    style.Colors[ImGuiCol_SliderGrab] = ImVec4(0.2f, 0.2f, 0.2f, 0.7f);
+    style.Colors[ImGuiCol_SliderGrabActive] = ImVec4(0.12f, 0.12f, 0.12f, 0.7f);
+
     bool Running = true;
     bool Menu = false;
     bool Crosshair = true;
     int CrosshairX = GetSystemMetrics(SM_CXSCREEN) / 2;
     int CrosshairY = GetSystemMetrics(SM_CYSCREEN) / 2;
     int CrosshairRadius = 10;
-    const char* Crosshairs[] = { "Circle", "Rectangle", "-", "+", "*"};
+    int CrosshairThickness = 1;
+    bool CrosshairFilled = true;
+    const char* Crosshairs[] = { "Circle", "Rectangle","Triangle",  "-", "+", "*"};
     static int CurrentCrosshairIndex = 0;
+    float CrosshairColour[3] = { 1.f, 0.f, 0.f };
     bool VSync = true;
+
+    bool FPSDisplay = false;
+    bool FPSDisplayOptions = false;
+    const char* FPSDisplayModes[] = { "Top Left", "Top Right","Bottom Left",  "Bottom Right", "Custom"};
+    static int CurrentModeIndex = 0;
+    int FPSDisplayX = 0;
+    int FPSDisplayY = 0;
+    float FPSDisplayColour[3] = { 1.f, 0.f, 0.f };
+
+    int VK_Hotkey = VK_INSERT;
 
     while (Running)
     {
@@ -159,9 +197,10 @@ INT APIENTRY WinMain(HINSTANCE Instance, HINSTANCE, PSTR, INT ShowCMD)
 
 	   ImGui::NewFrame();
 
-       if (GetAsyncKeyState(VK_INSERT))
+       if (GetAsyncKeyState(VK_Hotkey))
        {
            Menu = !Menu;
+           FPSDisplayOptions = false;
            Sleep(150);
 
            if (!Menu)
@@ -176,25 +215,8 @@ INT APIENTRY WinMain(HINSTANCE Instance, HINSTANCE, PSTR, INT ShowCMD)
        if (Menu)
        {
            ImGui::Begin("Overlook", &Menu, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
-           
-           ImGuiStyle& style = ImGui::GetStyle();
-           style.WindowRounding = 0.0f;
-           style.Colors[ImGuiCol_TitleBg] = ImVec4(0.1f, 0.1f, 0.1f, 1.0f);
-           style.Colors[ImGuiCol_TitleBgActive] = ImVec4(0.15f, 0.15f, 0.15f, 1.0f);
-           style.Colors[ImGuiCol_Text] = ImVec4(0.8f, 0.8f, 0.8f, 1.0f);
-           style.Colors[ImGuiCol_WindowBg] = ImVec4(0.05f, 0.05f, 0.05f, 0.7f);
 
-           style.Colors[ImGuiCol_Button] = ImVec4(0.02f, 0.02f, 0.02f, 0.7f);
-           style.Colors[ImGuiCol_ButtonHovered] = ImVec4(0.6f, 0.6f, 0.6f, 0.7f);
-           style.Colors[ImGuiCol_ButtonActive] = ImVec4(0.12f, 0.12f, 0.12f, 0.7f);
-
-           style.Colors[ImGuiCol_CheckMark] = ImVec4(0.7f, 0.7f, 0.7f, 0.7f);
-           style.Colors[ImGuiCol_FrameBg] = ImVec4(0.01f, 0.01f, 0.01f, 0.7f);
-           style.Colors[ImGuiCol_FrameBgHovered] = ImVec4(0.6f, 0.6f, 0.6f, 0.7f);
-           style.Colors[ImGuiCol_FrameBgActive] = ImVec4(0.12f, 0.12f, 0.12f, 0.7f);
-
-           style.Colors[ImGuiCol_SliderGrab] = ImVec4(0.6f, 0.6f, 0.6f, 0.7f);
-           style.Colors[ImGuiCol_SliderGrabActive] = ImVec4(0.12f, 0.12f, 0.12f, 0.7f);
+           ImVec2 WindowSize = ImVec2(225.f, 260.f);
 
            ImGui::Checkbox("Active", &Crosshair);
 
@@ -213,9 +235,23 @@ INT APIENTRY WinMain(HINSTANCE Instance, HINSTANCE, PSTR, INT ShowCMD)
                ImGui::EndCombo();
            }
 
+           if (CurrentCrosshairIndex == 0 || CurrentCrosshairIndex == 1 || CurrentCrosshairIndex == 2)
+           {
+               ImGui::Checkbox("Filled", &CrosshairFilled);
+               WindowSize.y = WindowSize.y + 20.f;
+           }
+
+           if (CurrentCrosshairIndex == 3 || CurrentCrosshairIndex == 4)
+           {
+			   ImGui::SliderInt("Thickness", &CrosshairThickness, 1, 10);
+			   WindowSize.y = WindowSize.y + 20.f;
+		   }
+
            ImGui::SliderInt("X", &CrosshairX, 0, GetSystemMetrics(SM_CXSCREEN));
            ImGui::SliderInt("Y", &CrosshairY, GetSystemMetrics(SM_CYSCREEN), 0);
            ImGui::SliderInt("Radius", &CrosshairRadius, 1, 100);
+           ImGui::ColorEdit3("Colour", CrosshairColour);
+           ImGui::Checkbox("FPS Display Options", &FPSDisplayOptions);
            ImGui::Checkbox("VSync |", &VSync);
            ImGui::SameLine();
            ImGui::Text("FPS: %.1f", ImGui::GetIO().Framerate);
@@ -230,7 +266,7 @@ INT APIENTRY WinMain(HINSTANCE Instance, HINSTANCE, PSTR, INT ShowCMD)
            if (ImGui::Button("Exit", { 100.f, 20.f }))
                Running = false;
            
-           ImGui::SetWindowSize({ 225.f, 230.f });
+           ImGui::SetWindowSize({ WindowSize });
            ImGui::End();
        }
 
@@ -239,26 +275,105 @@ INT APIENTRY WinMain(HINSTANCE Instance, HINSTANCE, PSTR, INT ShowCMD)
            switch (CurrentCrosshairIndex)
            {
                case 0:
-				   ImGui::GetBackgroundDrawList()->AddCircleFilled({ CrosshairX + 0.f, CrosshairY + 0.f }, CrosshairRadius, ImColor(1.f, 0.f, 0.f));
+				   if (CrosshairFilled)
+                       ImGui::GetBackgroundDrawList()->AddCircleFilled({ CrosshairX + 0.f, CrosshairY + 0.f }, CrosshairRadius, ImColor(CrosshairColour[0], CrosshairColour[1], CrosshairColour[2]));
+				   else
+					   ImGui::GetBackgroundDrawList()->AddCircle({ CrosshairX + 0.f, CrosshairY + 0.f }, CrosshairRadius, ImColor(CrosshairColour[0], CrosshairColour[1], CrosshairColour[2]));
 				   break;
                case 1:
-                   ImGui::GetBackgroundDrawList()->AddRectFilled({ CrosshairX - (CrosshairRadius + 0.f / 2), CrosshairY - (CrosshairRadius + 0.f / 2) }, { CrosshairX + (CrosshairRadius + 0.f / 2), CrosshairY + (CrosshairRadius + 0.f / 2) }, ImColor(1.f, 0.f, 0.f) );
+                   if (CrosshairFilled)
+                       ImGui::GetBackgroundDrawList()->AddRectFilled({ CrosshairX - (CrosshairRadius + 0.f / 2), CrosshairY - (CrosshairRadius + 0.f / 2) }, { CrosshairX + (CrosshairRadius + 0.f / 2), CrosshairY + (CrosshairRadius + 0.f / 2) }, ImColor(CrosshairColour[0], CrosshairColour[1], CrosshairColour[2]));
+				   else
+                       ImGui::GetBackgroundDrawList()->AddRect({ CrosshairX - (CrosshairRadius + 0.f / 2), CrosshairY - (CrosshairRadius + 0.f / 2) }, { CrosshairX + (CrosshairRadius + 0.f / 2), CrosshairY + (CrosshairRadius + 0.f / 2) }, ImColor(CrosshairColour[0], CrosshairColour[1], CrosshairColour[2]));
                    break;
                case 2:
-                   ImGui::GetBackgroundDrawList()->AddText({ CrosshairX - ImGui::CalcTextSize("-").x / 2.0f, CrosshairY - ImGui::CalcTextSize("-").y / 2.0f }, ImColor(1.f, 0.f, 0.f), "-");
+                   if (CrosshairFilled)
+                       ImGui::GetBackgroundDrawList()->AddTriangleFilled({ CrosshairX - (CrosshairRadius + 0.f / 2), CrosshairY + (CrosshairRadius + 0.f / 2) }, { CrosshairX + (CrosshairRadius + 0.f / 2), CrosshairY + (CrosshairRadius + 0.f / 2) }, { CrosshairX + 0.f, CrosshairY - (CrosshairRadius + 0.f / 2) }, ImColor(CrosshairColour[0], CrosshairColour[1], CrosshairColour[2]));
+                   else
+                       ImGui::GetBackgroundDrawList()->AddTriangle({ CrosshairX - (CrosshairRadius + 0.f / 2), CrosshairY + (CrosshairRadius + 0.f / 2) }, { CrosshairX + (CrosshairRadius + 0.f / 2), CrosshairY + (CrosshairRadius + 0.f / 2) }, { CrosshairX + 0.f, CrosshairY - (CrosshairRadius + 0.f / 2) }, ImColor(CrosshairColour[0], CrosshairColour[1], CrosshairColour[2]));
                    break;
                case 3:
-                   ImGui::GetBackgroundDrawList()->AddText({ CrosshairX - ImGui::CalcTextSize("+").x / 2.0f, CrosshairY - ImGui::CalcTextSize("+").y / 2.0f}, ImColor(1.f, 0.f, 0.f), "+");
+                   ImGui::GetBackgroundDrawList()->AddLine({ CrosshairX - (CrosshairRadius + 0.f / 2), CrosshairY + 0.f }, { CrosshairX + (CrosshairRadius + 0.f / 2), CrosshairY + 0.f }, ImColor(CrosshairColour[0], CrosshairColour[1], CrosshairColour[2]), CrosshairThickness);
                    break;
                case 4:
-                   ImGui::GetBackgroundDrawList()->AddText({ CrosshairX - ImGui::CalcTextSize("*").x / 2.0f, CrosshairY - ImGui::CalcTextSize("*").y / 2.0f}, ImColor(1.f, 0.f, 0.f), "*");
+                   ImGui::GetBackgroundDrawList()->AddLine({ CrosshairX + 0.f, CrosshairY - (CrosshairRadius + 0.f / 2) }, { CrosshairX + 0.f, CrosshairY + (CrosshairRadius + 0.f / 2) }, ImColor(CrosshairColour[0], CrosshairColour[1], CrosshairColour[2]), CrosshairThickness);
+                   ImGui::GetBackgroundDrawList()->AddLine({ CrosshairX - (CrosshairRadius + 0.f / 2), CrosshairY + 0.f }, { CrosshairX + (CrosshairRadius + 0.f / 2), CrosshairY + 0.f }, ImColor(CrosshairColour[0], CrosshairColour[1], CrosshairColour[2]), CrosshairThickness);
+                   break;
+               case 5:
+                   ImGui::GetBackgroundDrawList()->AddText({ CrosshairX - ImGui::CalcTextSize("*").x / 2.0f, CrosshairY - ImGui::CalcTextSize("*").y / 2.0f}, ImColor(CrosshairColour[0], CrosshairColour[1], CrosshairColour[2]), "*");
 				   break;
                default:
-                   ImGui::GetBackgroundDrawList()->AddCircleFilled({ CrosshairX + 0.f, CrosshairY + 0.f }, CrosshairRadius, ImColor(1.f, 0.f, 0.f));
+                   ImGui::GetBackgroundDrawList()->AddCircleFilled({ CrosshairX + 0.f, CrosshairY + 0.f }, CrosshairRadius, ImColor(CrosshairColour[0], CrosshairColour[1], CrosshairColour[2]));
                    break;
 
            }
        }
+
+       if (FPSDisplayOptions)
+       {
+		   ImGui::Begin("Overlook - FPS Display", &FPSDisplayOptions, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
+
+		   ImVec2 WindowSize = ImVec2(310.f, 128.f);
+
+           ImGui::Checkbox("Active", &FPSDisplay);
+
+           ImGui::ColorEdit3("Text Colour", FPSDisplayColour);
+
+           if (ImGui::BeginCombo("Position Mode", FPSDisplayModes[CurrentModeIndex]))
+           {
+               for (int i = 0; i < IM_ARRAYSIZE(FPSDisplayModes); i++)
+               {
+				   const bool isSelected = (CurrentModeIndex == i);
+				   if (ImGui::Selectable(FPSDisplayModes[i], isSelected))
+                       CurrentModeIndex = i;
+
+				   if (isSelected)
+					   ImGui::SetItemDefaultFocus();
+			   }
+
+			   ImGui::EndCombo();
+		   }
+
+           switch (CurrentModeIndex)
+           {
+           case 0:
+               FPSDisplayX = 0;
+               FPSDisplayY = 0;
+               break;
+           case 1:
+               FPSDisplayX = 1870;
+               FPSDisplayY = 0;
+               break;
+           case 2:
+               FPSDisplayX = 0;
+               FPSDisplayY = 1065;
+               break;
+           case 3:
+               FPSDisplayX = 1870;
+               FPSDisplayY = 1065;
+               break;
+           }
+
+           if (CurrentModeIndex == 4)
+           {
+               WindowSize.y = WindowSize.y + 65.f;
+               ImGui::SliderInt("X", &FPSDisplayX, 0, GetSystemMetrics(SM_CXSCREEN));
+			   ImGui::SliderInt("Y", &FPSDisplayY, GetSystemMetrics(SM_CYSCREEN), 0);
+               if (ImGui::Button("Centre"))
+               {
+                   FPSDisplayX = GetSystemMetrics(SM_CXSCREEN) / 2 - ImGui::CalcTextSize("FPS 0.0000").x / 2.0f;
+				   FPSDisplayY = GetSystemMetrics(SM_CYSCREEN) / 2 - ImGui::CalcTextSize("FPS 0.0000").y / 2.0f;
+               }
+           }
+
+           ImGui::Text("Please note that this is just Overlooks\nFPS, not the games FPS.");
+
+           ImGui::SetWindowSize({ WindowSize });
+           ImGui::End();
+       }
+
+       if (FPSDisplay)
+           ImGui::GetBackgroundDrawList()->AddText({ FPSDisplayX + 0.f, FPSDisplayY + 0.f }, ImColor(FPSDisplayColour[0], FPSDisplayColour[1], FPSDisplayColour[2]), std::to_string(ImGui::GetIO().Framerate).c_str());
 
        ImGui::Render();
 
